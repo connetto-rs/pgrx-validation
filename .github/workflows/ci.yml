@@ -1,0 +1,59 @@
+name: CI
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test and coverage
+    runs-on: ubuntu-26.04
+    # Most of the time goes to compiling PostgreSQL 17 for pgrx.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04 # nightly
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        with:
+          tool: cargo-llvm-cov
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install PostgreSQL build dependencies
+        run: sudo apt-get update && sudo apt-get install -y bison flex libreadline-dev
+      - name: Install cargo-pgrx
+        run: |
+          pgrx_version=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "pgrx") | .version')
+          cargo install cargo-pgrx --version "$pgrx_version" --locked
+      - name: Initialize pgrx
+        run: cargo pgrx init --pg17 download
+      - name: Run the tests under coverage
+        # cargo pgrx test drives its own cargo build, so the instrumentation has to come through the
+        # environment, and the report has to run in the same shell to find the profiles.
+        run: |
+          eval "$(cargo llvm-cov show-env --sh)"
+          cargo pgrx test pg17 --no-default-features --features pg17
+          cargo test --test test_migration --no-default-features --features pg17
+          mkdir -p target/coverage
+          # The pgrx_embed! macro points a function at a deleted tempfile, so it stays out of the report.
+          cargo llvm-cov report --lcov --ignore-filename-regex '\.tmp' --output-path target/coverage/lcov.info
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: target/coverage/lcov.info
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
