@@ -1,1 +1,0 @@
-CREATE EXTENSION IF NOT EXISTS pgrx_validation;

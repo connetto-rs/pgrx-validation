@@ -15,8 +15,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # pgrx 0.13's bindgen reads PostgreSQL 17's tuple headers as opaque under the runner's default
-  # libclang 22, so pgrx-pg-sys fails to build. libclang 20 reads them.
+  # pgrx's bindgen reads PostgreSQL 17's tuple headers as opaque under the runner's default
+  # libclang 22, which breaks the pgrx-pg-sys build. libclang 20 reads them.
   LIBCLANG_PATH: /usr/lib/llvm-20/lib
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04 # nightly
         with:
-          components: llvm-tools-preview
+          components: llvm-tools-preview, clippy
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
           tool: cargo-llvm-cov
@@ -41,17 +41,24 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y bison flex libreadline-dev libclang-20-dev
       - name: Install cargo-pgrx
         run: |
-          pgrx_version=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "pgrx") | .version')
+          pgrx_version=$(cargo metadata --format-version 1 --features pgrx_validation/pg17 | jq -r '.packages[] | select(.name == "pgrx") | .version')
           cargo install cargo-pgrx --version "$pgrx_version" --locked
       - name: Initialize pgrx
         run: cargo pgrx init --pg17 download
+      - name: Lint
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy --workspace --all-targets --features pgrx_validation/pg17,pgrx_validation/pg_test -- -D warnings
       - name: Run the tests under coverage
         # cargo pgrx test drives its own cargo build, so the instrumentation has to come through the
         # environment, and the report has to run in the same shell to find the profiles.
         run: |
           eval "$(cargo llvm-cov show-env --sh)"
-          cargo pgrx test pg17 --no-default-features --features pg17
-          cargo test --test test_migration --no-default-features --features pg17
+          cargo test --workspace
+          # rust-cache restores target/test-pgdata without the cluster files, and pgrx then skips
+          # initdb on the existing directory, so the cluster is recreated on every run.
+          rm -rf target/test-pgdata
+          cargo pgrx test pg17 -p pgrx_validation
           mkdir -p target/coverage
           # The pgrx_embed! macro points a function at a deleted tempfile, so it stays out of the report.
           cargo llvm-cov report --lcov --ignore-filename-regex '\.tmp' --output-path target/coverage/lcov.info

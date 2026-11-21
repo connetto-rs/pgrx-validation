@@ -1,0 +1,5 @@
+error: Function `must_not_be_empty` must not take `self` to be decorated with `validation`.
+  --> tests/ui/test_self_validation.rs:11:30
+   |
+11 |     pub fn must_not_be_empty(&self) -> Result<(), crate::Error> {
+   |                              ^^^^^

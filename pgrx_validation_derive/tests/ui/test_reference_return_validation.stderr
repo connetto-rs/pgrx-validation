@@ -1,0 +1,5 @@
+error: Function `must_not_be_empty` must return a `Result<(), crate::Error>` to be decorated with `validation`, but returns `& 'static str`.
+ --> tests/ui/test_reference_return_validation.rs:7:38
+  |
+7 | pub fn must_not_be_empty(_arg: &str) -> &'static str {
+  |                                      ^^^^^^^^^^^^^^^
