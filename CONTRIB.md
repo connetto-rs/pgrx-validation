@@ -10,7 +10,7 @@ sudo apt -y install libreadline-dev bison flex libclang-dev
 `cargo-pgrx` must be the exact version of the `pgrx` crate in the dependency graph:
 
 ```bash
-pgrx_version=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "pgrx") | .version')
+pgrx_version=$(cargo metadata --format-version 1 --features pgrx_validation/pg17 | jq -r '.packages[] | select(.name == "pgrx") | .version')
 cargo install cargo-pgrx --version "$pgrx_version" --locked
 cargo pgrx init --pg17 download
 ```
