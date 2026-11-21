@@ -1,41 +1,44 @@
-[package]
-name = "pgrx_validation"
-version = "0.0.0"
-edition = "2021"
+[workspace]
+resolver = "3"
+members = ["pgrx_validation", "pgrx_validation_derive"]
 
-[lib]
-crate-type = ["cdylib", "lib"]
+[workspace.package]
+edition = "2024"
 
-[[bin]]
-name = "pgrx_embed_pgrx_validation"
-path = "./src/bin/pgrx_embed.rs"
+[workspace.dependencies]
+pgrx = "0.16.1"
+pgrx-tests = "0.16.1"
+pgrx_validation_derive = { path = "pgrx_validation_derive" }
+phf = { version = "0.13.1", features = ["macros"] }
+quote = "1.0"
+syn = { version = "2.0.110", features = ["full"] }
+thiserror = "2.0.21"
+trybuild = "1.0.111"
+validator = "0.20"
 
-[features]
-default = ["pg13"]
-pg12 = ["pgrx/pg12", "pgrx-tests/pg12"]
-pg13 = ["pgrx/pg13", "pgrx-tests/pg13"]
-pg14 = ["pgrx/pg14", "pgrx-tests/pg14"]
-pg15 = ["pgrx/pg15", "pgrx-tests/pg15"]
-pg16 = ["pgrx/pg16", "pgrx-tests/pg16"]
-pg17 = ["pgrx/pg17", "pgrx-tests/pg17"]
-pg_test = []
+[workspace.lints.rust]
+missing_docs = "deny"
+unused_macro_rules = "forbid"
+unconditional_recursion = "forbid"
+unreachable_patterns = "forbid"
+unused_import_braces = "forbid"
+unused_must_use = "forbid"
+deprecated = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(pgrx_embed)"] }
 
-[dependencies]
-diesel = { version = "2.2.7", features = [
-    "serde_json",
-    "postgres",
-    "r2d2",
-    "chrono",
-    "uuid",
-    "extras",
-] }
-diesel_migrations = "2.2.0"
-pgrx = "=0.13"
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "forbid"
+bare_urls = "forbid"
+invalid_codeblock_attributes = "forbid"
+invalid_html_tags = "forbid"
+missing_crate_level_docs = "forbid"
+unescaped_backticks = "forbid"
+redundant_explicit_links = "forbid"
+invalid_rust_codeblocks = "forbid"
 
-[dev-dependencies]
-pgrx-tests = "=0.13"
-testcontainers = {version="0.23.2"}
-tokio = {version ="1.43.0", features = ["full"]}
+[workspace.lints.clippy]
+clone_on_copy = "forbid"
+pedantic = { level = "deny", priority = -1 }
 
 [profile.dev]
 panic = "unwind"

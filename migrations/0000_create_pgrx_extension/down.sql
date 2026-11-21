@@ -1,1 +1,0 @@
-DROP EXTENSION IF EXISTS pgrx_validation;

@@ -3,7 +3,7 @@
 use pgrx_validation_derive::validation;
 
 #[validation]
-pub fn must_not_be_empty(_arg: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
+pub fn must_not_be_empty(_arg: &str) -> Result<(), crate::Error> {
     Ok(())
 }
 

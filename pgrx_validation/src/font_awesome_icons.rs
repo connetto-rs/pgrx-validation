@@ -1,3 +1,5 @@
+//! Submodule for Font Awesome class name validation
+
 use pgrx_validation_derive::validation;
 use phf::{Set, phf_set};
 
@@ -1443,13 +1445,31 @@ static FONT_AWESOME_CLASSES: Set<&'static str> = phf_set! {
 ///
 /// # Errors
 ///
-/// * `validation_errors::prelude::SingleFieldError::EmptyText` if the string is
-///   empty.
-pub fn must_be_font_awesome_class(
-    value: &str,
-) -> Result<(), validation_errors::prelude::SingleFieldError> {
-    if !FONT_AWESOME_CLASSES.contains(value) {
-        return Err(format!("'{value}' is not a valid Font Awesome class name.").into());
+/// * [`crate::Error::UnknownFontAwesomeClass`] if the string is not one of the
+///   Font Awesome class names.
+pub fn must_be_font_awesome_class(value: &str) -> Result<(), crate::Error> {
+    if FONT_AWESOME_CLASSES.contains(value) {
+        Ok(())
+    } else {
+        Err(crate::Error::UnknownFontAwesomeClass(value.to_owned()))
     }
-    Ok(())
+}
+
+#[cfg(not(feature = "pgrx"))]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_must_be_font_awesome_class() {
+        assert_eq!(must_be_font_awesome_class("address-book"), Ok(()));
+        assert_eq!(
+            must_be_font_awesome_class("address-books"),
+            Err(crate::Error::UnknownFontAwesomeClass("address-books".to_owned()))
+        );
+        assert_eq!(
+            must_be_font_awesome_class(""),
+            Err(crate::Error::UnknownFontAwesomeClass(String::new()))
+        );
+    }
 }

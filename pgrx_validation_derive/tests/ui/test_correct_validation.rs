@@ -8,7 +8,7 @@ use pgrx_validation_derive::validation;
 /// # Errors
 ///
 /// * `Error::EmptyText` if the given argument is empty.
-pub fn must_not_be_another_empty(_arg: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
+pub fn must_not_be_another_empty(_arg: &str) -> Result<(), crate::Error> {
     Ok(())
 }
 
@@ -19,7 +19,7 @@ pub fn must_not_be_another_empty(_arg: &str) -> Result<(), validation_errors::pr
 /// # Errors
 ///
 /// * `Error::EmptyText` if the given argument is empty.
-pub fn must_not_be_empty(arg: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
+pub fn must_not_be_empty(arg: &str) -> Result<(), crate::Error> {
     must_not_be_another_empty(arg)?;
     Ok(())
 }
@@ -32,7 +32,7 @@ pub fn must_not_be_empty(arg: &str) -> Result<(), validation_errors::prelude::Si
 /// * `Error::EmptyText` if the given argument is empty.
 pub fn must_not_contain_another_empty(
     _arg: &str,
-) -> Result<(), validation_errors::prelude::SingleFieldError> {
+) -> Result<(), crate::Error> {
     Ok(())
 }
 
@@ -42,7 +42,7 @@ pub fn must_not_contain_another_empty(
 /// # Errors
 ///
 /// * `Error::EmptyText` if the given argument is empty.
-pub fn must_contain_another_empty(_arg: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
+pub fn must_contain_another_empty(_arg: &str) -> Result<(), crate::Error> {
     Ok(())
 }
 
@@ -53,12 +53,16 @@ pub fn must_contain_another_empty(_arg: &str) -> Result<(), validation_errors::p
 /// # Errors
 ///
 /// * `Error::EmptyText` if the given argument is empty.
-pub fn must_not_contain_empty(arg: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
+pub fn must_not_contain_empty(arg: &str) -> Result<(), crate::Error> {
     must_not_be_another_empty(arg)?;
     must_contain_another_empty(arg)?;
     must_not_contain_another_empty(arg)?;
     Ok(())
 }
+
+/// The error type the validations above return.
+#[derive(Debug)]
+pub struct Error;
 
 /// The main for this test.
 fn main() {}

@@ -1,33 +1,11 @@
 # PGRX Validation
 
-[![PGRX Build](https://github.com/earth-metabolome-initiative/emi-monorepo/actions/workflows/pgrx-build-pgrx_validation.yml/badge.svg)](https://github.com/earth-metabolome-initiative/emi-monorepo/actions/workflows/pgrx-build-pgrx_validation.yml)
+Validation rules defined once and compiled to several targets. Without features, each validation is an ordinary Rust function returning `Result<(), Error>`, usable from a backend or from a frontend compiled to WASM. With the `pgrx` feature and one of `pg13` to `pg17`, the crate builds the `pgrx_validation` PostgreSQL extension, in which each validation is a SQL function returning `true` or raising an error, so a `CHECK` constraint applies the same rule as the application.
 
-Cross-compile-target validation of common web components.
+```rust
+use pgrx_validation::{Error, must_be_email, must_be_paragraph};
 
-## Overview
-
-Data validation is fundamental in any application. In a web application, data may be validated several times:
-
-* First, when the user inputs data in a form. Here there may a function that, for instance, checks whether the user has entered a valid email address.
-* Second, when the data is sent to the server. Here, again, since data submitted from the client can be tampered with, the server must validate the data, and check that it is in the expected format. The email from the previous example must be checked again.
-* Thirdly, the data is stored in a database. Since we cannot necessarily trust that all developers working on the project have implemented the same validation rules, the database must also validate the data. Not all data insertions script are written by experienced developer, and data integrity is crucial, especially in the case of Earth Metabolome Initiative, which aims to provide data in the first place.
-
-Re-defining a validation multiple times is a waste of time, and prone to errors as if the validation rules are changed, they must be changed in multiple places. In this library, we define the validation rules in a single place, and then compile it to different targets.
-
-![mechanism](./mechanism.png)
-
-## Building the extension
-
-To build the extension into the local folder `./extension`, you can run:
-
-```bash
-USER_ID=$(id -u) GROUP_ID=$(id -g) docker compose up
+assert_eq!(must_be_email("marco.visani@unifr.ch"), Ok(()));
+assert_eq!(must_be_email("marco"), Err(Error::InvalidEmail));
+assert_eq!(must_be_paragraph("two  spaces"), Err(Error::ConsecutiveWhitespace));
 ```
-
-Where the `USER_ID` and `GROUP_ID` environment variables are used to set the user and group IDs inside the container to match those of the host system. This is important to avoid polluting the `target` directory with files owned by the root user, which would make it impossible to delete them from the host system.
-
-DO NOT just run `cargo build` or `cargo pgrx package` as you may not have the correct version of `PostgreSQL` installed on your system or several other dynamically linked libraries, such as `GLIBC`. Instead, always use the `docker compose` command.
-
-## Contributing
-
-Please read the [CONTRIB.md](CONTRIB.md) file for instructions on how to contribute to this crate.

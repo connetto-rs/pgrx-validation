@@ -1,7 +1,6 @@
 //! Submodule for string validation
 
 use pgrx_validation_derive::validation;
-use validation_errors::prelude::Unspecified;
 use validator::ValidateEmail;
 
 #[validation]
@@ -13,11 +12,11 @@ use validator::ValidateEmail;
 ///
 /// # Errors
 ///
-/// * `validation_errors::prelude::SingleFieldError::InvalidMail` if the string
-///   is not a valid mail address.
-pub fn must_be_email(value: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
+/// * [`crate::Error::Empty`] if the string is empty.
+/// * [`crate::Error::InvalidEmail`] if the string is not a valid mail address.
+pub fn must_be_email(value: &str) -> Result<(), crate::Error> {
     must_not_be_empty(value)?;
-    if value.validate_email() { Ok(()) } else { Err("Invalid mail address".into()) }
+    if value.validate_email() { Ok(()) } else { Err(crate::Error::InvalidEmail) }
 }
 
 #[validation]
@@ -29,14 +28,9 @@ pub fn must_be_email(value: &str) -> Result<(), validation_errors::prelude::Sing
 ///
 /// # Errors
 ///
-/// * `validation_errors::prelude::SingleFieldError::EmptyText` if the string is
-///   empty.
-pub fn must_not_be_empty(value: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
-    if value.is_empty() {
-        Err(validation_errors::prelude::SingleFieldError::empty(Unspecified))
-    } else {
-        Ok(())
-    }
+/// * [`crate::Error::Empty`] if the string is empty.
+pub fn must_not_be_empty(value: &str) -> Result<(), crate::Error> {
+    if value.is_empty() { Err(crate::Error::Empty) } else { Ok(()) }
 }
 
 #[validation]
@@ -48,18 +42,13 @@ pub fn must_not_be_empty(value: &str) -> Result<(), validation_errors::prelude::
 ///
 /// # Errors
 ///
-/// * `validation_errors::prelude::SingleFieldError::PaddedText` if the
-///  string has leading or trailing whitespace.
-pub fn must_not_be_padded(value: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
-    if value.trim_start() != value || value.trim_end() != value {
-        Err("Must not be padded".into())
-    } else {
-        Ok(())
-    }
+/// * [`crate::Error::Padded`] if the string has leading or trailing whitespace.
+pub fn must_not_be_padded(value: &str) -> Result<(), crate::Error> {
+    if value.trim() == value { Ok(()) } else { Err(crate::Error::Padded) }
 }
 
 #[validation]
-/// Validates that a string does not contain two or more consecutive whitespace
+/// Validates that a string does not contain two or more consecutive spaces.
 ///
 /// # Arguments
 ///
@@ -67,21 +56,14 @@ pub fn must_not_be_padded(value: &str) -> Result<(), validation_errors::prelude:
 ///
 /// # Errors
 ///
-/// * `validation_errors::prelude::SingleFieldError::ConsecutiveWhitespace` if
-///   the
-/// string contains two or more consecutive whitespace.
-pub fn must_not_contain_consecutive_whitespace(
-    value: &str,
-) -> Result<(), validation_errors::prelude::SingleFieldError> {
-    if value.contains("  ") {
-        Err("Must not contain consecutive whitespace".into())
-    } else {
-        Ok(())
-    }
+/// * [`crate::Error::ConsecutiveWhitespace`] if the string contains two or more
+///   consecutive spaces.
+pub fn must_not_contain_consecutive_whitespace(value: &str) -> Result<(), crate::Error> {
+    if value.contains("  ") { Err(crate::Error::ConsecutiveWhitespace) } else { Ok(()) }
 }
 
 #[validation]
-/// Validates that a string does not contains any control characters.
+/// Validates that a string does not contain any control characters.
 ///
 /// # Arguments
 ///
@@ -89,25 +71,15 @@ pub fn must_not_contain_consecutive_whitespace(
 ///
 /// # Errors
 ///
-/// * `validation_errors::prelude::SingleFieldError::ControlCharacters` if the
-/// string contains control characters.
-pub fn must_not_contain_control_characters(
-    value: &str,
-) -> Result<(), validation_errors::prelude::SingleFieldError> {
-    if value.chars().any(char::is_control) {
-        Err("Must not contain control characters".into())
-    } else {
-        Ok(())
-    }
+/// * [`crate::Error::ControlCharacters`] if the string contains control
+///   characters.
+pub fn must_not_contain_control_characters(value: &str) -> Result<(), crate::Error> {
+    if value.chars().any(char::is_control) { Err(crate::Error::ControlCharacters) } else { Ok(()) }
 }
 
 #[validation]
-/// Validates that a string is a valid paragraph.
-/// It calls:
-/// * `must_not_be_empty`
-/// * `must_not_be_padded`
-/// * `must_not_contain_consecutive_whitespace`
-/// * `must_not_contain_control_characters`
+/// Validates that a string is a valid paragraph, which is non-empty, not
+/// padded, and free of consecutive spaces and control characters.
 ///
 /// # Arguments
 ///
@@ -115,9 +87,10 @@ pub fn must_not_contain_control_characters(
 ///
 /// # Errors
 ///
-/// * `validation_errors::prelude::SingleFieldError::InvalidParagraph` if the
-/// string is not a valid paragraph.
-pub fn must_be_paragraph(value: &str) -> Result<(), validation_errors::prelude::SingleFieldError> {
+/// * The error of the first failing check among [`must_not_be_empty`],
+///   [`must_not_be_padded`], [`must_not_contain_consecutive_whitespace`] and
+///   [`must_not_contain_control_characters`].
+pub fn must_be_paragraph(value: &str) -> Result<(), crate::Error> {
     must_not_be_empty(value)?;
     must_not_be_padded(value)?;
     must_not_contain_consecutive_whitespace(value)?;
@@ -127,17 +100,27 @@ pub fn must_be_paragraph(value: &str) -> Result<(), validation_errors::prelude::
 
 #[cfg(feature = "pgrx")]
 #[cfg(any(test, feature = "pg_test"))]
-#[cfg_attr(feature = "pgrx", pgrx::pg_schema)]
+#[pgrx::pg_schema]
 mod tests {
     use pgrx::prelude::*;
 
-    use super::*;
-
     #[pg_test]
-    #[should_panic]
-    fn test_must_not_be_empty() {
-        let x = "";
-        must_not_be_empty(x);
+    fn test_must_be_paragraph_accepts_paragraph() {
+        let accepted = Spi::get_one::<bool>("SELECT must_be_paragraph('marco visani')").unwrap();
+        assert_eq!(accepted, Some(true));
+    }
+
+    #[pg_test(error = "Validation failed: must not contain consecutive whitespace")]
+    fn test_must_be_paragraph_rejects_double_space() {
+        Spi::run("SELECT must_be_paragraph('marco  visani')").unwrap();
+    }
+
+    #[pg_test(error = "Validation failed: must be a valid email address")]
+    fn test_must_be_email_rejects_in_check_constraint() {
+        Spi::run("CREATE TABLE contacts (email TEXT NOT NULL CHECK (must_be_email(email)))")
+            .unwrap();
+        Spi::run("INSERT INTO contacts (email) VALUES ('marco.visani@unifr.ch')").unwrap();
+        Spi::run("INSERT INTO contacts (email) VALUES ('marco')").unwrap();
     }
 }
 
@@ -145,61 +128,52 @@ mod tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Error;
 
     #[test]
     fn test_must_be_email() {
-        assert!(must_be_email("marco.visani@unifr.ch").is_ok());
-        assert_eq!(
-            must_be_email("marco").unwrap_err().to_string(),
-            "Field `Unspecified`: Invalid mail address"
-        );
-        assert_eq!(
-            must_be_email("").unwrap_err().to_string(),
-            "Field `Unspecified` must not be empty"
-        );
+        assert_eq!(must_be_email("marco.visani@unifr.ch"), Ok(()));
+        assert_eq!(must_be_email("marco"), Err(Error::InvalidEmail));
+        assert_eq!(must_be_email(""), Err(Error::Empty));
     }
 
     #[test]
     fn test_must_not_be_padded() {
-        assert!(must_not_be_padded("marco").is_ok());
-        assert_eq!(
-            must_not_be_padded(" marco ").unwrap_err().to_string(),
-            "Field `Unspecified`: Must not be padded"
-        );
+        assert_eq!(must_not_be_padded("marco"), Ok(()));
+        assert_eq!(must_not_be_padded(" marco"), Err(Error::Padded));
+        assert_eq!(must_not_be_padded("marco\t"), Err(Error::Padded));
     }
 
     #[test]
     fn test_must_not_contain_control_characters() {
-        assert!(must_not_contain_control_characters("marco").is_ok());
-        assert_eq!(
-            must_not_contain_control_characters("marco\n").unwrap_err().to_string(),
-            "Field `Unspecified`: Must not contain control characters"
-        );
+        assert_eq!(must_not_contain_control_characters("marco"), Ok(()));
+        assert_eq!(must_not_contain_control_characters("marco\n"), Err(Error::ControlCharacters));
     }
 
     #[test]
     fn test_must_not_contain_consecutive_whitespace() {
-        assert!(must_not_contain_consecutive_whitespace("marco visani").is_ok());
+        assert_eq!(must_not_contain_consecutive_whitespace("marco visani"), Ok(()));
         assert_eq!(
-            must_not_contain_consecutive_whitespace("marco  visani").unwrap_err().to_string(),
-            "Field `Unspecified`: Must not contain consecutive whitespace"
+            must_not_contain_consecutive_whitespace("marco  visani"),
+            Err(Error::ConsecutiveWhitespace)
         );
     }
 
     #[test]
     fn test_must_be_paragraph() {
-        assert!(must_be_paragraph("marco visani").is_ok());
+        assert_eq!(must_be_paragraph("marco visani"), Ok(()));
+        assert_eq!(must_be_paragraph(""), Err(Error::Empty));
+        assert_eq!(must_be_paragraph(" marco"), Err(Error::Padded));
+        assert_eq!(must_be_paragraph("marco  visani"), Err(Error::ConsecutiveWhitespace));
+        assert_eq!(must_be_paragraph("marco\nvisani"), Err(Error::ControlCharacters));
+    }
+
+    #[test]
+    fn test_error_messages() {
+        assert_eq!(Error::InvalidEmail.to_string(), "must be a valid email address");
         assert_eq!(
-            must_be_paragraph("marco  visani").unwrap_err().to_string(),
-            "Field `Unspecified`: Must not contain consecutive whitespace"
-        );
-        assert_eq!(
-            must_be_paragraph("marco\nvisani").unwrap_err().to_string(),
-            "Field `Unspecified`: Must not contain control characters"
-        );
-        assert_eq!(
-            must_be_paragraph("").unwrap_err().to_string(),
-            "Field `Unspecified` must not be empty"
+            Error::UnknownFontAwesomeClass("not-an-icon".to_owned()).to_string(),
+            "`not-an-icon` is not a Font Awesome class name"
         );
     }
 }
