@@ -10,7 +10,9 @@ fn test_illegal_validation() {
     t.compile_fail("tests/ui/test_generics_validation.rs");
     t.compile_fail("tests/ui/test_empty_return_type_validation.rs");
     t.compile_fail("tests/ui/test_no_args_validation.rs");
+    t.compile_fail("tests/ui/test_self_validation.rs");
     t.compile_fail("tests/ui/test_return_bool_validation.rs");
+    t.compile_fail("tests/ui/test_reference_return_validation.rs");
     t.compile_fail("tests/ui/test_invalid_error_validation.rs");
     t.compile_fail("tests/ui/test_almost_correct_validation.rs");
     t.compile_fail("tests/ui/test_not_must_validation.rs");

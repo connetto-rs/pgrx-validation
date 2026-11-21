@@ -69,6 +69,23 @@ pub fn validation(_attr: TokenStream, item: TokenStream) -> TokenStream {
         return syn::Error::new(sig.inputs.span(), &error_message).to_compile_error().into();
     }
 
+    // A validation is a free function, so it must not take `self`.
+    let Some(argument_patterns) = sig
+        .inputs
+        .iter()
+        .map(|argument| {
+            match argument {
+                syn::FnArg::Typed(pat_type) => Some(&pat_type.pat),
+                syn::FnArg::Receiver(_) => None,
+            }
+        })
+        .collect::<Option<Vec<_>>>()
+    else {
+        let error_message =
+            format!("Function `{fn_name}` must not take `self` to be decorated with `validation`.");
+        return syn::Error::new(sig.inputs.span(), &error_message).to_compile_error().into();
+    };
+
     // We expect the function to return a `Result<(), crate::Error>`.
     if !is_result_unit_crate_error(&sig.output) {
         let error_message = format!(
@@ -114,17 +131,6 @@ pub fn validation(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let inputs = &sig.inputs;
 
-    // Collect argument names to be passed along when calling the validation.
-    let arg_names = inputs.iter().map(|arg| {
-        match arg {
-            syn::FnArg::Receiver(_) => quote! { self },
-            syn::FnArg::Typed(pat_type) => {
-                let pat = &pat_type.pat;
-                quote! { #pat }
-            }
-        }
-    });
-
     // The wrapper exposed to PostgreSQL under the name of the validation,
     // which returns `true` or raises the validation error.
     let sql_name = fn_name.to_string();
@@ -135,7 +141,7 @@ pub fn validation(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[doc(hidden)]
         #[pgrx::pg_extern(name = #sql_name)]
         pub fn #wrapper_fn_name (#inputs) -> bool {
-            match #fn_name(#(#arg_names),*) {
+            match #fn_name(#(#argument_patterns),*) {
                 Ok(()) => true,
                 Err(error) => {
                     pgrx::error!("Validation failed: {}", error);
@@ -154,10 +160,13 @@ fn is_result_unit_crate_error(output: &syn::ReturnType) -> bool {
     let syn::Type::Path(type_path) = &**ty else {
         return false;
     };
-    let Some(last_segment) = type_path.path.segments.last() else {
-        return false;
-    };
-    let syn::PathArguments::AngleBracketed(args) = &last_segment.arguments else {
+    type_path.path.segments.last().is_some_and(is_result_unit_crate_error_segment)
+}
+
+/// Determines if the last segment of a return type path is
+/// `Result<(), crate::Error>`.
+fn is_result_unit_crate_error_segment(segment: &syn::PathSegment) -> bool {
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
         return false;
     };
     let mut arguments = args.args.iter();
@@ -169,7 +178,7 @@ fn is_result_unit_crate_error(output: &syn::ReturnType) -> bool {
     else {
         return false;
     };
-    last_segment.ident == "Result" && ok_type.elems.is_empty() && is_crate_error(error_path)
+    segment.ident == "Result" && ok_type.elems.is_empty() && is_crate_error(error_path)
 }
 
 /// Checks if a `TypePath` is `crate::Error`.

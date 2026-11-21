@@ -9,6 +9,7 @@ crate-type = ["cdylib", "lib"]
 [[bin]]
 name = "pgrx_embed_pgrx_validation"
 path = "./src/bin/pgrx_embed.rs"
+required-features = ["pgrx"]
 
 [dependencies]
 pgrx = { workspace = true, optional = true }
