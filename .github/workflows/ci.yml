@@ -55,6 +55,9 @@ jobs:
         run: |
           eval "$(cargo llvm-cov show-env --sh)"
           cargo test --workspace
+          # rust-cache restores target/test-pgdata without the cluster files, and pgrx then skips
+          # initdb on the existing directory, so the cluster is recreated on every run.
+          rm -rf target/test-pgdata
           cargo pgrx test pg17 -p pgrx_validation
           mkdir -p target/coverage
           # The pgrx_embed! macro points a function at a deleted tempfile, so it stays out of the report.
